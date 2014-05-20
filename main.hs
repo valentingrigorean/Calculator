@@ -3,6 +3,22 @@ import Text.Parsec.String
 import Text.Parsec.Token
 import Text.Parsec.Language
 import Text.Parsec.Expr
+import Control.Monad.State
+import qualified Data.Map as M
+
+
+data Expression = Constant Double
+        | Identifier String
+        | Addition Expression Expression
+        | Subtraction Expression Expression
+        | Multiplication Expression Expression
+        | Division Expression Expression
+        | Modulus Expression Expression
+        | Negation Expression
+        deriving (Show)
+
+data Statement = PrintStatement Expression
+        deriving (Show)
 
 lexer :: TokenParser()
 lexer =  makeTokenParser(javaStyle{
@@ -10,43 +26,84 @@ lexer =  makeTokenParser(javaStyle{
         opLetter = oneOf "+-*/%"
     })
 
-parseNumber :: Parser Double
+parseNumber :: Parser Expression
 parseNumber = do
     val <- naturalOrFloat lexer
     case val of 
-        Left i -> return $ fromIntegral i
-        Right n -> return $ n
+        Left i -> return $ Constant $ fromIntegral i
+        Right n -> return $ Constant $ n
 
-doubleMod :: Double -> Double -> Double
-doubleMod top bottom = fromInteger $(floor top) `mod`(floor bottom) 
-
-parseExpression :: Parser Double
+parseExpression :: Parser Expression
 parseExpression = (flip buildExpressionParser) parseTerm $ [
-        [ Prefix (reservedOp lexer "-" >> return negate),
+        [ Prefix (reservedOp lexer "-" >> return Negation),
           Prefix (reservedOp lexer "+" >> return id) ],
-        [ Infix  (reservedOp lexer "*" >> return (*)) AssocLeft,
-          Infix  (reservedOp lexer "/" >> return (/)) AssocLeft,
-          Infix  (reservedOp lexer "%" >> return doubleMod)AssocLeft],
-        [ Infix  (reservedOp lexer "+" >> return (+)) AssocLeft,
-          Infix  (reservedOp lexer "-" >> return (-)) AssocLeft]
+        [ Infix  (reservedOp lexer "*" >> return Multiplication) AssocLeft,
+          Infix  (reservedOp lexer "/" >> return Division) AssocLeft,
+          Infix  (reservedOp lexer "%" >> return Modulus)AssocLeft],
+        [ Infix  (reservedOp lexer "+" >> return Addition) AssocLeft,
+          Infix  (reservedOp lexer "-" >> return Subtraction) AssocLeft]
     ]
 
-parseInput :: Parser Double
+parseTerm :: Parser Expression
+parseTerm = parens lexer parseExpression <|> parseNumber <|> (identifier lexer >>= return Identifier)
+
+parsePrint :: Parser Statement
+parsePrint = do
+    reserved lexer "print"
+    n <-  parseExpression
+    return $ PrintStatement n
+
+parseInput :: Parser Statement
 parseInput = do
     whiteSpace lexer
-    n <- parseExpression
-    return n
+    s <- parsePrint
+    eof
+    return s
 
-parseTerm :: Parser Double
-parseTerm = parens lexer parseExpression <|> parseNumber 
+type Calculator a = StateT(M.Map String Expression) IO a
 
-calculator :: String -> String
-calculator s = do
+interpretExpression :: Expression -> Calculator Double
+interpretExpression (Constant n) =  return n
+interpretExpression (Multiplication e1 e2) = do
+    v1 <- interpretExpression e1
+    v2 <- interpretExpression e2
+    return (v1*v2)
+interpretExpression (Division e1 e2) = do
+    v1 <- interpretExpression e1
+    v2 <- interpretExpression e2
+    return (v1/v2)
+interpretExpression (Modulus e1 e2) = do
+    v1 <- interpretExpression e1
+    v2 <- interpretExpression e2
+    let n1 = floor v1
+        n2 = floor v2        
+    return (fromInteger (n1 `mod` n2))
+interpretExpression (Addition e1 e2) = do
+    v1 <- interpretExpression e1
+    v2 <- interpretExpression e2
+    return (v1+v2)
+interpretExpression (Subtraction e1 e2) = do
+    v1 <- interpretExpression e1
+    v2 <- interpretExpression e2
+    return (v1-v2)
+interpretExpression (Negation e1) = do
+    v1 <- interpretExpression e1    
+    return (negate v1)
+
+interpretStatement :: Statement -> Calculator ()
+interpretStatement (PrintStatement expr) = do
+    n <- interpretExpression expr
+    liftIO $ print n
+
+
+
+calculate :: String -> IO()
+calculate s = do
     case ret of
-        Left e -> "error: " ++ (show e)
-        Right n -> "answer: " ++ (show n)
+        Left e -> putStr $ "error: " ++ (show e)
+        Right n -> evalStateT (interpretStatement n) M.empty
     where
         ret = parse parseInput "" s
 
 main :: IO()
-main = interact (unlines . (map calculator) . lines)
+main = getContents >>=(mapM_ calculate) .lines
