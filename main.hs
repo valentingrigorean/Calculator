@@ -2,6 +2,7 @@ import Text.Parsec
 import Text.Parsec.String
 import Text.Parsec.Token
 import Text.Parsec.Language
+import Text.Parsec.Expr
 
 lexer :: TokenParser()
 lexer =  makeTokenParser(javaStyle{
@@ -9,23 +10,35 @@ lexer =  makeTokenParser(javaStyle{
         opLetter = oneOf "+-*/%"
     })
 
-parseNumber :: Parser Int
+parseNumber :: Parser Double
 parseNumber = do
-    neg <- (char '-' >> return "-") <|> (return "")
-    n <- many1 $ oneOf "0123456789"
-    return (read (neg ++ n))
+    val <- naturalOrFloat lexer
+    case val of 
+        Left i -> return $ fromIntegral i
+        Right n -> return $ n
 
-parseAddition :: Parser Int
-parseAddition = do
-    n1 <- parseNumber
-    char '+'
-    n2 <- parseNumber
-    return (n1+n2)
+doubleMod :: Double -> Double -> Double
+doubleMod top bottom = fromInteger $(floor top) `mod`(floor bottom) 
 
-calculation :: Parser Int
-calculation = do
-    try parseAddition <|> parseNumber 
+parseExpression :: Parser Double
+parseExpression = (flip buildExpressionParser) parseTerm $ [
+        [ Prefix (reservedOp lexer "-" >> return negate),
+          Prefix (reservedOp lexer "+" >> return id) ],
+        [ Infix  (reservedOp lexer "*" >> return (*)) AssocLeft,
+          Infix  (reservedOp lexer "/" >> return (/)) AssocLeft,
+          Infix  (reservedOp lexer "%" >> return doubleMod)AssocLeft],
+        [ Infix  (reservedOp lexer "+" >> return (+)) AssocLeft,
+          Infix  (reservedOp lexer "-" >> return (-)) AssocLeft]
+    ]
 
+parseInput :: Parser Double
+parseInput = do
+    whiteSpace lexer
+    n <- parseExpression
+    return n
+
+parseTerm :: Parser Double
+parseTerm = parens lexer parseExpression <|> parseNumber 
 
 calculator :: String -> String
 calculator s = do
@@ -33,7 +46,7 @@ calculator s = do
         Left e -> "error: " ++ (show e)
         Right n -> "answer: " ++ (show n)
     where
-        ret = parse calculation "" s
+        ret = parse parseInput "" s
 
 main :: IO()
 main = interact (unlines . (map calculator) . lines)
