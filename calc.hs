@@ -22,7 +22,6 @@ data Expr = Constant Double
 	deriving(Show)
 	
 data Statement = PrintStatement Expr	
-	| PrintIdentifier Expr
 	| AssignmentStatement String Expr
 	deriving(Show)
 	
@@ -78,15 +77,10 @@ parsePrint = do
 	expr <- parseExpr
 	return (PrintStatement expr)
 	
-parsePrintIdent :: Parser Statement
-parsePrintIdent = do
-	expr <- parseIdentifier
-	return (PrintIdentifier expr)
-	
 parseInput :: Parser Statement
 parseInput = do	
 	whiteSpace lexer
-	s <- (try parseAssigment <|> parsePrintIdent <|> parsePrint)
+	s <- (try parseAssigment <|> parsePrint)
 	eof
 	return s
 
@@ -176,10 +170,6 @@ interpretStatemnt :: Statement -> Calculator ()
 interpretStatemnt (PrintStatement expr) = do	
 	n <- interpretExpr expr
 	liftIO  $ print n
-	
-interpretStatemnt (PrintIdentifier expr) = do
-	n <- interpretExpr expr
-	liftIO $ print n
 	
 interpretStatemnt (AssignmentStatement ident expr) = do
 	n <- interpretExpr expr
