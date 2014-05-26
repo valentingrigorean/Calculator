@@ -1,3 +1,4 @@
+module Calc(calcUI) where
 import Text.Parsec
 import Text.Parsec.String
 import Text.Parsec.Token
@@ -22,7 +23,7 @@ data Expr = Constant Double
 	deriving(Show)
 	
 data Statement = PrintStatement Expr	
-	| AssignmentStatement String Expr
+	| AssignmentStatement String Expr	
 	deriving(Show)
 	
 defaultValues :: LanguageDef st
@@ -30,7 +31,7 @@ defaultValues = LanguageDef
 	{	commentStart 	= "/*"
 	,	commentEnd 		= "*/"
 	,	commentLine 	= "//"
-	,	nestedComments = True
+	,	nestedComments  = True
 	,	identStart 		= letter <|> char '_'
 	,	identLetter 	= alphaNum <|> oneOf "_'"
 	,	opStart 		= oneOf "+-&/%^"
@@ -103,7 +104,7 @@ parseIdentifier = do
 	return $ Identifier ident
 	
 --interpret expr
-type Calculator = StateT (M.Map String Expr) IO 
+type Calculator a = StateT (M.Map String Expr) IO a
 
 interpretExpr :: Expr -> Calculator Double
 
@@ -123,7 +124,9 @@ interpretExpr (Multiplication e1 e2) = do
 interpretExpr (Division e1 e2) = do
 	v1 <- interpretExpr e1
 	v2 <- interpretExpr e2
-	return (v1/v2)
+	case v2 of
+		0 -> fail ("Division by 0")
+		_ -> return (v1/v2)
 	
 interpretExpr (Modulus e1 e2) = do
 	v1 <- interpretExpr e1
@@ -166,25 +169,42 @@ interpretExpr (Cos e1) = do
 	return (cos v1)	
 	
 --interpret statement
-interpretStatemnt :: Statement -> Calculator ()
+interpretStatemnt :: Statement ->Calculator()
 interpretStatemnt (PrintStatement expr) = do	
 	n <- interpretExpr expr
-	liftIO  $ print n
+	liftIO $ print n
 	
 interpretStatemnt (AssignmentStatement ident expr) = do
 	n <- interpretExpr expr
 	modify (M.insert ident (Constant n))
 
-calculate :: String -> Calculator()
+inter :: Statement -> Calculator Double
+inter (PrintStatement expr) = do
+	n <- interpretExpr expr
+	return n	
+
+calculateUI s = 
+	case ret of 
+		Left e -> fail ("Invalid Expr")
+		Right n -> evalStateT (inter n) M.empty
+	where
+		ret = parse parseInput "" s
+
+calcUI s = do
+	val <- calculateUI s
+	return (show val)
+
+calculate :: String -> Calculator ()
 calculate s = 
 	case ret of
-		Left e -> liftIO $ putStr $ "error: " ++ (show e)
+		Left e ->  fail ("Invalid Expr")
 		Right n -> interpretStatemnt n
 	where
 		ret = parse parseInput "" s		
 calculator ::String -> Calculator()
 calculator s = 
 	mapM_ calculate (lines s)
+
 main :: IO()
 main = do 
 	cont <- readFile "input.txt"
