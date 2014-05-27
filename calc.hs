@@ -29,13 +29,13 @@ data Stmt = PrintStmt Expr
 defaultValues :: LanguageDef st
 defaultValues = LanguageDef 
 	{	commentStart 	= "/*"
-	,	commentEnd 		= "*/"
+	,	commentEn	= "*/"
 	,	commentLine 	= "//"
 	,	nestedComments  = True
-	,	identStart 		= letter <|> char '_'
+	,	identStart 	= letter <|> char '_'
 	,	identLetter 	= alphaNum <|> oneOf "_'"
-	,	opStart 		= oneOf "+-&/%^"
-	,	opLetter 		= oneOf "+-&/%^"
+	,	opStart 	= oneOf "+-&/%^"
+	,	opLetter 	= oneOf "+-&/%^"
 	,	reservedNames 	= ["cos","sin","sqrt"]
 	,	reservedOpNames = ["="]
 	,	caseSensitive 	= False
