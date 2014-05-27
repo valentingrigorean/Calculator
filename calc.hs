@@ -81,12 +81,11 @@ parsePrint = do
 parseInput :: Parser Stmt
 parseInput = do	
 	whiteSpace lexer
-	s <- (try parseAssigment <|> parsePrint)
-	eof
+	s <- (try parseAssign <|> parsePrint)	
 	return s
 
-parseAssigment :: Parser Stmt
-parseAssigment = do		
+parseAssign :: Parser Stmt
+parseAssign = do		
 	ident <- identifier lexer
 	reservedOp lexer "="
 	expr <- parseExpr
@@ -169,12 +168,12 @@ interpretExpr (Cos e1) = do
 	return (cos v1)	
 	
 --interpret Stmt
-interpretStatemnt :: Stmt ->Calculator()
-interpretStatemnt (PrintStmt expr) = do	
+interpretStmt :: Stmt ->Calculator()
+interpretStmt (PrintStmt expr) = do	
 	n <- interpretExpr expr
 	liftIO $ print n
 	
-interpretStatemnt (AssignStmt ident expr) = do
+interpretStmt (AssignStmt ident expr) = do
 	n <- interpretExpr expr
 	modify (M.insert ident (Constant n))
 
@@ -198,7 +197,7 @@ calculate :: String -> Calculator ()
 calculate s = 
 	case ret of
 		Left e ->  fail ("Invalid Expr")
-		Right n -> interpretStatemnt n
+		Right n -> interpretStmt n
 	where
 		ret = parse parseInput "" s		
 calculator ::String -> Calculator()
