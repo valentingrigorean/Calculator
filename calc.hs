@@ -22,8 +22,8 @@ data Expr = Constant Double
 	| Cos Expr
 	deriving(Show)
 	
-data Statement = PrintStatement Expr	
-	| AssignmentStatement String Expr	
+data Stmt = PrintStmt Expr	
+	| AssignStmt String Expr	
 	deriving(Show)
 	
 defaultValues :: LanguageDef st
@@ -73,24 +73,24 @@ parseTerm =
 	<|> parseNumber
 	<|> parseIdentifier
 	
-parsePrint :: Parser Statement
+parsePrint :: Parser Stmt
 parsePrint = do	
 	expr <- parseExpr
-	return (PrintStatement expr)
+	return (PrintStmt expr)
 	
-parseInput :: Parser Statement
+parseInput :: Parser Stmt
 parseInput = do	
 	whiteSpace lexer
 	s <- (try parseAssigment <|> parsePrint)
 	eof
 	return s
 
-parseAssigment :: Parser Statement
+parseAssigment :: Parser Stmt
 parseAssigment = do		
 	ident <- identifier lexer
 	reservedOp lexer "="
 	expr <- parseExpr
-	return (AssignmentStatement ident expr)
+	return (AssignStmt ident expr)
 	
 parseNumber :: Parser Expr
 parseNumber = do
@@ -168,18 +168,18 @@ interpretExpr (Cos e1) = do
 	v1 <- interpretExpr e1
 	return (cos v1)	
 	
---interpret statement
-interpretStatemnt :: Statement ->Calculator()
-interpretStatemnt (PrintStatement expr) = do	
+--interpret Stmt
+interpretStatemnt :: Stmt ->Calculator()
+interpretStatemnt (PrintStmt expr) = do	
 	n <- interpretExpr expr
 	liftIO $ print n
 	
-interpretStatemnt (AssignmentStatement ident expr) = do
+interpretStatemnt (AssignStmt ident expr) = do
 	n <- interpretExpr expr
 	modify (M.insert ident (Constant n))
 
-inter :: Statement -> Calculator Double
-inter (PrintStatement expr) = do
+inter :: Stmt -> Calculator Double
+inter (PrintStmt expr) = do
 	n <- interpretExpr expr
 	return n	
 

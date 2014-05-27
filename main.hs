@@ -20,10 +20,13 @@ setAnswer w = do
 remove1 :: Textual w => w -> IO()	
 remove1 w = do
 	val <- get w text	
-	valid <- validate w ""
-	if valid == 0
-	then set w [text := take (length val -1) val]	
-	else return()
+	if val /= "0"
+	then set w [text := "0"]
+	else if (length val) == 1 
+	then set w [text :="0"]
+	else if (length val) > 1
+	then set w [text := take (length val -1) val]		
+	else return ()	
 
 validate :: Textual w => w -> String -> IO Int
 validate w s = do
@@ -66,7 +69,7 @@ gui :: IO ()
 gui = do
 	f <- frameFixed [ text := "Calculator"]
 	p <- panel f [] 
-	te <- textEntry p [alignment := AlignRight,enabled := False]
+	te <- textEntry p [alignment := AlignRight,enabled := False,text:="0"]
 	b0 				<- initButton p te "0"
 	b1 				<- initButton p te "1"
 	b2 				<- initButton p te "2"
